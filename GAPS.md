@@ -164,12 +164,14 @@ Needed before real consolidation. Not urgent this week.
 
 The one change that unlocks AI, background jobs, and cross-module queries. If Tier 1.1 is done consistently, this is mechanical: swap service bodies from Supabase calls to `fetch`.
 
-Options, in rough order of fit:
-- **Supabase Edge Functions** — closest to what exists, no new hosting, keeps RLS natural
-- **Next.js API routes** — what the docs specify; means a Next app in front of, or alongside, the SPAs
-- **Small Fastify service on Vercel** — most control, most setup
+**Decided (D1):** a standalone Fastify service, `logistics-api`, hosted on Railway at `api.domain.com`. See `STACK.md`.
 
-`CLAUDE.md` lists this as undecided. Decide it when you do it, not before.
+This is the right call given Vite SPA frontends. Next.js API routes would have meant adopting Next purely to host endpoints, and Supabase Edge Functions would have made background workers and long-running AI orchestration awkward. A persistent Node process on Railway gives all three — API, workers, and LangGraph — one home.
+
+Consequences to plan for:
+- Frontends now make cross-origin calls — CORS config and cookie/token strategy need deciding alongside D2
+- Two deploy targets instead of one; API and frontend ship independently, so API changes must stay backward-compatible
+- The API needs its own repo or workspace, its own env management, and its own Supabase client (server-side key handling — see D2)
 
 ## 2.2 Give stufferPlanner persistence
 
@@ -195,7 +197,7 @@ Not doing these is correct right now. Listed so they don't feel like oversights.
 
 - **Monorepo migration** — shared packages via `file:` deps get 90% of the benefit at 10% of the cost
 - **Frontend stack convergence** — freeze new divergence, converge opportunistically; two grid libraries is ugly, not dangerous
-- **Next.js migration** — Vite SPA + separate API service is a perfectly good architecture; don't migrate for the sake of the doc
+- **Next.js** — ruled out entirely (D1). Vite SPAs plus a standalone Fastify API is the architecture. Don't reintroduce it.
 - **Sentry / OpenTelemetry** — add when there's production traffic worth observing
 - **Anything LangGraph** — blocked on 2.1 regardless; writing tools before services exist means writing them twice
 
@@ -203,11 +205,12 @@ Not doing these is correct right now. Listed so they don't feel like oversights.
 
 # Documentation Fixes
 
-The current docs describe a system that doesn't match either app. Fix so they stop misleading:
+Fix so the docs stop misleading:
 
-- `CLAUDE.md` mandates **Next.js** — both apps are Vite SPAs
-- `CLAUDE.md` mandates **MUI DataGrid** — stufferPlanner uses ag-Grid
-- `CLAUDE.md` mandates **TypeScript everywhere** — rates-app is entirely JavaScript
+- ~~`CLAUDE.md` mandates **Next.js**~~ — fixed; now React + Vite, Fastify, Railway, matching `STACK.md`
+- ~~`CLAUDE.md` mandates **OpenAI GPT** while `STACK.md` says Anthropic Claude~~ — fixed; aligned to Claude
+- ~~`CLAUDE.md` mandates **MUI DataGrid**~~ — moved to an explicit "Not Yet Settled" section (D6/D7)
+- `CLAUDE.md` mandates **TypeScript everywhere** — rates-app is entirely JavaScript (see 1.6)
 - `CLAUDE.md` and `DESIGN.md` overlap heavily; CLAUDE.md loads into every AI context window, so it should hold *enforceable rules* (conventions, commands, layout) and leave philosophy in DESIGN.md
 - **Missing:** `SCHEMA.md`, `EVENTS.md`, `GLOSSARY.md` — the actual domain content
 - `rates-app` has ~30 markdown files including `NEXTSTEPS.md` **and** `NEXTSTEPSV2.md`, plus three separate assessment documents. Consolidate; contradictory docs are worse than none.
@@ -220,16 +223,23 @@ Answer these and record them here. Each one is currently unstated and load-beari
 
 | # | Decision | Status |
 |---|---|---|
-| D1 | API layer: Edge Functions / Next.js routes / Fastify | open |
-| D2 | Authorization: RLS-authoritative or service-authoritative | open |
+| D1 | API layer | **closed** — standalone Fastify service on Railway (`STACK.md`) |
+| D2 | Authorization: RLS-authoritative or service-authoritative | open — now urgent, see below |
 | D3 | Service identity for jobs and AI agents | open |
 | D4 | ID strategy: uuid or bigint | open |
 | D5 | Module separation: Postgres schemas or table prefixes | open |
 | D6 | Standard grid library | open |
 | D7 | Standard component system: MUI or Radix | open |
-| D8 | Domain strategy: subdomains or separate origins | open |
+| D8 | Domain strategy | **closed** — subdomains per module, `api.domain.com` for the API |
 | D9 | Definition of `customer` | open |
 | D10 | Soft delete or hard delete | open |
+
+**D2 became urgent when D1 closed.** `STACK.md` says permissions are enforced through Supabase policies *and* backend validation *and* service-level authorization — three layers, none named authoritative. With a Fastify service now sitting between browser and database, you must pick:
+
+- **User JWT forwarded to Supabase** — RLS stays authoritative, the API adds business rules on top. Least disruption to what already works, but background jobs and AI agents have no JWT (that's D3).
+- **Service role key** — the API becomes authoritative and RLS is bypassed for anything server-side. More power, but every access rule you currently get free from RLS must be reimplemented and tested in services.
+
+Most systems land on: user JWT for interactive requests, service role for jobs and agents, with services enforcing rules in both paths. Decide before writing the first Fastify route.
 
 ---
 
@@ -259,11 +269,11 @@ These five shape every table you create from now on. Answering them late means m
 - [ ] **D5** Module separation — Postgres schemas or table prefixes
 - [ ] **D9** Definition of `customer` — the one that will bite
 - [ ] **D10** Soft delete or hard delete
-- [ ] **D8** Domain strategy — subdomains or separate origins
+- [x] **D8** Domain strategy — closed, subdomains per module
 
 Record the answers in the Decisions Log above with a one-line rationale each.
 
-**Defer D1, D2, D3** (API layer, authorization model, service identity) until you actually build the API. They're load-bearing but they don't constrain today's work.
+**D1 is closed** — Fastify on Railway. **Answer D2 and D3 before writing the first Fastify route**, not before then; they don't constrain the schema work above, but they are the first thing the API's design depends on.
 
 **Decide D6 and D7** (grid library, component system) in the same sitting if you can — they cost nothing to decide and prevent app #3 from adding a third variant.
 
@@ -331,12 +341,13 @@ Tier 2 items shouldn't sit on a calendar. Each has a natural trigger:
 
 | When this happens | Do this |
 |---|---|
-| Something needs data without a browser — a cron job, a webhook, an export | Build the API layer (2.1). This is the real signal. |
+| Something needs data without a browser — a cron job, a webhook, an export | Stand up `logistics-api` on Railway (2.1). This is the real signal. |
+| You're about to write the first Fastify route | D2 and D3 must be answered first |
 | You start building Inbound | Design the event log and projection first (2.4), before any UI |
 | stufferPlanner needs to survive a refresh or be seen by another user | Give it a schema (2.2) |
 | The second app needs the same component | Extract `@logistics/ui` (2.3) |
-| You're about to create app #3 | D8 must be locked, and it uses the D6/D7 stack |
-| You start writing AI tools | Stop — 2.1 must exist first, or you'll write every tool twice |
+| You're about to create app #3 | It gets a subdomain (D8) and uses the D6/D7 stack |
+| You start writing AI tools | Stop — `logistics-api` must exist first, or you'll write every tool twice |
 
 ---
 

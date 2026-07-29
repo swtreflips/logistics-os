@@ -47,20 +47,23 @@ Architecture should be designed from day one with this separation.
 
 # Tech Stack
 
+See `STACK.md` for the full architecture. This is the summary.
+
 Frontend
 
 - React
-- Next.js
+- Vite
 - TypeScript
-- MUI DataGrid
-- React Query
-- React Hook Form
+
+No Next.js. Frontends are Vite SPAs.
 
 Backend
 
 - Node.js
-- Next.js API Routes (or separate Express/Fastify service)
+- Fastify
 - TypeScript
+
+A standalone `logistics-api` service — not API routes inside a frontend app.
 
 Database
 
@@ -74,7 +77,8 @@ Authentication
 
 Hosting
 
-- Vercel
+- Vercel — frontend applications, one subdomain per module
+- Railway — the Logistics API and background workers
 
 Storage
 
@@ -91,9 +95,18 @@ Email
 
 AI
 
-- OpenAI GPT
+- Anthropic Claude
 - LangGraph
 - LangChain (tool definitions and integrations where appropriate)
+
+## Not Yet Settled
+
+Do not treat these as decided. See the Decisions Log in `GAPS.md`.
+
+- Data grid — rates-app uses MUI X DataGrid, stufferPlanner uses ag-Grid (D6)
+- Component system — MUI vs. Radix (D7)
+- Server state — React Query intended, not yet adopted in either app
+- Forms — React Hook Form intended, not yet adopted in either app
 
 Observability
 
