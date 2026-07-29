@@ -389,6 +389,30 @@ AppointmentService
 
 ---
 
+# Services May Span Deployables
+
+The services above live in the Business Services API. Geospatial capability lives in a separate GeoBrain Service.
+
+That split is a **hosting decision**, made for caching and cost reasons. It changes nothing about layering:
+
+```
+Interface  →  Service  →  Repository  →  Database
+```
+
+Both deployables follow it.
+
+Splitting across deployables is never permission to:
+
+- Let a frontend query the database directly
+- Duplicate business logic so two services can each "own" it
+- Put business rules into a platform service
+
+When deciding where a new capability belongs, ask whether it is **logistics domain logic** or a **general-purpose capability**. Domain logic goes in Business Services. General-purpose capability may earn its own service — but only when caching, cost, or scaling profile actually justifies the second deployable. Two services are a cost; pay it deliberately.
+
+See `SERVICES.md`.
+
+---
+
 # Repositories Own Data Access
 
 Repositories only retrieve or persist data.

@@ -47,7 +47,7 @@ Architecture should be designed from day one with this separation.
 
 # Tech Stack
 
-See `STACK.md` for the full architecture. This is the summary.
+See `STACK.md` for the full architecture and `SERVICES.md` for service boundaries. This is the summary.
 
 Frontend
 
@@ -55,15 +55,15 @@ Frontend
 - Vite
 - TypeScript
 
-No Next.js. Frontends are Vite SPAs.
+Frontends are Vite SPAs. Never Next.js.
 
-Backend
+Backend — two deployables
 
-- Node.js
-- Fastify
-- TypeScript
+**Business Services API** — Node.js, Fastify, TypeScript. Hosted on Railway. Owns all logistics business logic. This is where new services go by default.
 
-A standalone `logistics-api` service — not API routes inside a frontend app.
+**GeoBrain Service** — Next.js on Vercel. Owns geocoding, routing, distance, and geospatial caching. Nothing else. It must never learn what a shipment is.
+
+Next.js is used for GeoBrain and nowhere else. It is not a platform-wide choice.
 
 Database
 
@@ -77,8 +77,8 @@ Authentication
 
 Hosting
 
-- Vercel — frontend applications, one subdomain per module
-- Railway — the Logistics API and background workers
+- Vercel — frontend applications (one subdomain per module) and the GeoBrain Service
+- Railway — the Business Services API and background workers
 
 Storage
 
@@ -88,6 +88,8 @@ Maps
 
 - HERE Maps
 - OpenStreetMap (where applicable)
+
+Accessed only through the GeoBrain Service. No other service or app calls a maps provider directly — one cache, one place to control per-request spend.
 
 Email
 

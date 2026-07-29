@@ -197,7 +197,7 @@ Not doing these is correct right now. Listed so they don't feel like oversights.
 
 - **Monorepo migration** — shared packages via `file:` deps get 90% of the benefit at 10% of the cost
 - **Frontend stack convergence** — freeze new divergence, converge opportunistically; two grid libraries is ugly, not dangerous
-- **Next.js** — ruled out entirely (D1). Vite SPAs plus a standalone Fastify API is the architecture. Don't reintroduce it.
+- **Next.js for frontends or the business API** — ruled out (D1). Vite SPAs plus a standalone Fastify API. Next.js is used for the GeoBrain Service only, and that exception should not spread.
 - **Sentry / OpenTelemetry** — add when there's production traffic worth observing
 - **Anything LangGraph** — blocked on 2.1 regardless; writing tools before services exist means writing them twice
 
@@ -233,6 +233,8 @@ Answer these and record them here. Each one is currently unstated and load-beari
 | D8 | Domain strategy | **closed** — subdomains per module, `api.domain.com` for the API |
 | D9 | Definition of `customer` | open |
 | D10 | Soft delete or hard delete | open |
+| D11 | GeoBrain consumers: API only, frontends too, or both | open |
+| D12 | GeoBrain cache store: shared Supabase schema or dedicated store | open |
 
 **D2 became urgent when D1 closed.** `STACK.md` says permissions are enforced through Supabase policies *and* backend validation *and* service-level authorization — three layers, none named authoritative. With a Fastify service now sitting between browser and database, you must pick:
 
@@ -240,6 +242,12 @@ Answer these and record them here. Each one is currently unstated and load-beari
 - **Service role key** — the API becomes authoritative and RLS is bypassed for anything server-side. More power, but every access rule you currently get free from RLS must be reimplemented and tested in services.
 
 Most systems land on: user JWT for interactive requests, service role for jobs and agents, with services enforcing rules in both paths. Decide before writing the first Fastify route.
+
+**D11 and D12 arrived with `SERVICES.md`.** Neither blocks anything today — GeoBrain doesn't exist yet — but both get expensive after it does.
+
+D11 matters because two consumers means two cache-invalidation paths and two places to enforce rate limits. Starting with **API-only** is the reversible choice; opening it to frontends later is easy, closing it afterward is not.
+
+D12 matters because a geocoding cache in the shared operational database will accumulate millions of rows next to business tables. If it goes in Supabase it needs its own schema (see D5) and must be excluded from backup, audit, and RLS conventions that exist for business data. A dedicated store sidesteps that entirely.
 
 ---
 
@@ -343,6 +351,8 @@ Tier 2 items shouldn't sit on a calendar. Each has a natural trigger:
 |---|---|
 | Something needs data without a browser — a cron job, a webhook, an export | Stand up `logistics-api` on Railway (2.1). This is the real signal. |
 | You're about to write the first Fastify route | D2 and D3 must be answered first |
+| You're about to build GeoBrain | D11 and D12 must be answered first |
+| Any code needs a maps provider | It calls GeoBrain, never HERE or OSM directly |
 | You start building Inbound | Design the event log and projection first (2.4), before any UI |
 | stufferPlanner needs to survive a refresh or be seen by another user | Give it a schema (2.2) |
 | The second app needs the same component | Extract `@logistics/ui` (2.3) |

@@ -42,6 +42,22 @@ AI understands shipments.
 
 ---
 
+# Business Modules vs. Platform Services
+
+The four modules below own **business domains**. Each has a lifecycle stage, a user, and its own operational meaning.
+
+Alongside them sit **platform services** — shared capabilities with no business domain of their own. They are consumed by modules but never own logistics state.
+
+Current platform services:
+
+**GeoBrain** — geocoding, routing, distance, location intelligence, geospatial caching. See `SERVICES.md`.
+
+The test: if a capability would still make sense in a company that wasn't in logistics, it is a platform service, not a module. GeoBrain passes that test. Inbound does not.
+
+Platform services do not appear in the module lifecycle and do not get their own AI roadmap phase. They make modules possible.
+
+---
+
 # Module 1
 
 # Schedules

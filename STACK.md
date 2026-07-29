@@ -45,27 +45,26 @@ The platform is built to support:
 
                       ▼
 
-              Logistics API
+        Business Services API          GeoBrain Service
+             (Railway)                  (Next.js/Vercel)
 
-        ┌─────────────────────────┐
-        │                         │
-        │ Shipment Services       │
-        │ Container Services      │
-        │ Rate Services           │
-        │ Schedule Services       │
-        │ Planner Services        │
-        │ Customer Services       │
-        │ AI Tool Services        │
-        │                         │
-        └─────────────────────────┘
+        ┌─────────────────────────┐   ┌──────────────────────┐
+        │                         │   │                      │
+        │ Shipment Services       │   │ Geocoding            │
+        │ Container Services      │──▶│ Routing              │
+        │ Rate Services           │   │ Distance             │
+        │ Schedule Services       │   │ Location Intelligence│
+        │ Planner Services        │   │ Cache Management     │
+        │ Customer Services       │   │                      │
+        │ AI Tool Services        │   └──────────────────────┘
+        │                         │              │
+        └─────────────────────────┘              │
+                      │                          │
+                      ▼                          ▼
 
-                      │
+                          Supabase
 
-                      ▼
-
-                 Supabase
-
-        PostgreSQL + Auth + Storage
+                  PostgreSQL + Auth + Storage
 
                       │
 
@@ -176,19 +175,33 @@ This module becomes the foundation for the first AI assistant phase.
 
 # Backend Layer
 
-## Runtime
+The platform runs two backend deployables. See `SERVICES.md` for boundaries.
 
-Node.js
+## Business Services API
 
-## Framework
+Runtime: Node.js
 
-Fastify
+Framework: Fastify
+
+Hosting: Railway
+
+Owns all logistics business logic. New services go here by default.
+
+## GeoBrain Service
+
+Framework: Next.js
+
+Hosting: Vercel
+
+Owns geocoding, routing, distance, location intelligence, and geospatial caching. No business logic. It never knows what a shipment is.
+
+Next.js is used here and nowhere else on the platform.
 
 ---
 
-# Logistics API
+# Business Services API
 
-The Logistics API is the central business layer.
+The Business Services API is the central business layer.
 
 All applications interact with business capabilities through the API.
 
@@ -332,7 +345,7 @@ Railway
 
 Purpose:
 
-Host the Logistics API.
+Host the Business Services API.
 
 Example:
 
@@ -451,7 +464,7 @@ Anthropic Claude
 
 The AI is not the source of truth.
 
-The AI reasons over business capabilities exposed by the Logistics API.
+The AI reasons over business capabilities exposed by the Business Services API.
 
 ```
 User
@@ -466,7 +479,7 @@ AI Tools
 
 ↓
 
-Logistics API Services
+Business Services API
 
 ↓
 
@@ -626,6 +639,8 @@ Uses:
 - Distance calculations
 - Location intelligence
 
+**Accessed only through the GeoBrain Service.** No frontend, service, or worker calls a maps provider directly. HERE bills per request, so a single cached entry point is both an architectural and a cost decision.
+
 ---
 
 # Deployment Model
@@ -635,29 +650,21 @@ GitHub
 
     │
 
-    ├── React Projects
-
-    │        │
-
-    │        ▼
-
-    │      Vercel
+    ├── React Projects ──────▶ Vercel
 
     │
 
-    └── Logistics API
+    ├── GeoBrain Service ────▶ Vercel
 
-             │
+    │                             │
+    │                             ▼
+    │                          Supabase
+    │
+    └── Business Services API ▶ Railway
 
-             ▼
-
-          Railway
-
-             │
-
-             ▼
-
-          Supabase
+                                  │
+                                  ▼
+                               Supabase
 ```
 
 ---
