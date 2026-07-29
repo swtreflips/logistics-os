@@ -2,6 +2,10 @@
 
 The AI is not a business module. It is an intelligence layer over every module, and its capabilities expand as each module exposes reusable services.
 
+**Nothing in this document is being built yet.** The standalone apps come first and must be complete for humans on their own — see `README.md`, *The Foundation*. This document exists so that the platform being built today does not foreclose any of it.
+
+Every AI phase below is gated on Platform Stage P2. Until the service layer exists, writing tools means writing them twice.
+
 ---
 
 # Philosophy

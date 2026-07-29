@@ -18,6 +18,16 @@ Never build features exclusively for the dashboard. Build reusable business serv
 
 The dashboard is one interface. The AI is another. Both use the exact same backend capabilities. Only authentication differs.
 
+## Human First, In Sequence And In Priority
+
+The human applications are the foundation. The AI is a layer on top of them.
+
+This is not just ordering — it is a standard. Each app must stand entirely on its own for a human operator with no AI present. Build the dashboard as though the assistant will never exist, and build the *backend* as though it certainly will.
+
+In practice that means the frontend contains no AI affordances and no gaps waiting to be filled by one, while the layering below it is designed from day one so that a tool can call any capability the UI can.
+
+The apps are currently in active development, human-only. That is the correct phase. See `ROADMAP.md` for what "laying the groundwork" concretely requires while that continues.
+
 ## Everything Is A Capability
 
 Never think *"I need a page."* Think *"I need a capability."*

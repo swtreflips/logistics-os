@@ -22,6 +22,18 @@ All share one Supabase project and one auth model.
 
 ---
 
+# Current Phase
+
+The standalone apps are the foundation of the platform. The AI is a layer that will sit on top of them later.
+
+Build for humans. Each app must be fully usable with no AI present, and no UI should contain chat boxes, prompt bars, or gaps reserved for a future assistant.
+
+Build the *backend* as though the AI is certain — services, events, stable IDs, permissions in services. That groundwork is ordinary good practice, not a concession to a future feature.
+
+There is no tradeoff between the two. If a decision seems to trade "good for users" against "ready for AI," one of them is being done wrong.
+
+---
+
 # Non-Negotiable Rules
 
 **1. The database is the source of truth.** Never store shipment state in prompts or memory. Never let the AI infer it.

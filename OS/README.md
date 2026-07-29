@@ -7,6 +7,50 @@ An inbound logistics platform with an AI operations assistant built on top of it
 
 ---
 
+# The Foundation
+
+**The standalone apps are the platform. The AI is a layer that uses them.**
+
+Every module — Schedules, Rates, Stuffer Planner, Inbound — must be fully valuable to a human operator with no AI involved at all. If the AI layer were never built, the platform would still be worth having.
+
+That is the standard, and it is the current phase: the apps are in active development, human-only, and correctly so.
+
+## No AI-Shaped Holes
+
+While building for humans, do **not**:
+
+- Add chat boxes, prompt bars, or "ask AI" affordances
+- Design schemas around what a language model might find convenient
+- Build features that only make sense once an assistant exists
+- Leave gaps in the UI intended to be filled by AI later
+
+A dashboard that needs an assistant to be usable is a broken dashboard.
+
+## But Lay The Groundwork
+
+The AI layer needs nothing exotic. It needs the things a well-built platform has anyway:
+
+| Groundwork | Why humans need it | Why AI needs it |
+|---|---|---|
+| Business logic in services, not components | Testable, reusable across pages | Tools call services — they cannot call a React component |
+| Events instead of overwritten status | Real history; "what changed since yesterday?" | Explaining *why* something happened |
+| Normalized data with stable IDs | Correct joins, no duplicated text | Reliable entity resolution |
+| Permissions enforced in services | Correct access control | The AI inherits the user's access, never exceeds it |
+| Named capabilities (`getContainerTimeline`) | Clear, reusable code | Becomes a tool unchanged |
+| Recorded reasons, not just outcomes | Operators can explain a delay to a customer | The assistant can too — and stays silent when there is no reason on file |
+
+## The Point
+
+**There is no tradeoff.**
+
+The discipline that makes an app good for humans is the same discipline that makes it ready for AI. Clear capabilities, a real data model, no business logic in components — these are not concessions to a future assistant. They are what a well-built application looks like.
+
+If a decision seems to trade "good for users" against "ready for AI," one of the two is being done wrong.
+
+Build the human app correctly and the groundwork is already laid.
+
+---
+
 # The Five Rules
 
 Everything else in these documents follows from these. If a decision seems ambiguous, resolve it against this list.

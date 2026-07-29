@@ -14,9 +14,19 @@ Three separate documents previously numbered their phases 1–5 on different axe
 
 | Stage | Meaning | Status |
 |---|---|---|
-| **P1** | Human dashboards. Fast, accurate, easy to use. No AI assumptions in the UI. | in progress |
+| **P1** | Human dashboards. Fast, accurate, easy to use. No AI assumptions in the UI. | **in progress** |
 | **P2** | Service layer extracted. Every dashboard operation is a reusable service behind an API. | not started |
 | **P3** | Platform complete. All modules exposing capabilities; background automation running. | not started |
+
+## P1 Is Where The Work Is
+
+The standalone apps are the foundation of the platform, not a prototype of it. They are built for humans, and they must be complete for humans — if the AI layer were never built, the platform would still be worth having.
+
+So P1 is not a phase to rush through on the way to the interesting part. It *is* the platform.
+
+What P1 does carry is an obligation: build in the way that leaves P2 available. Every item in Part 4 below exists for that reason, and none of them require thinking about AI while designing a screen. They are ordinary good practice that happens to also be the entire prerequisite for an assistant.
+
+**Nothing in P1 should contain an AI feature.** No chat boxes, no prompt bars, no UI gaps reserved for a future assistant. See `README.md` — *No AI-Shaped Holes*.
 
 ## AI Phases
 
