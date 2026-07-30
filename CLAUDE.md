@@ -42,6 +42,8 @@ There is no tradeoff between the two. If a decision seems to trade "good for use
 
 **3. No `supabase.from()` outside `src/services/`.** Not in components, not in hooks, not in route handlers. Services return DTOs, never raw Postgres rows, and their signatures never leak Supabase types.
 
+New code always goes through a service; existing browser-direct queries convert only when you touch the file. Never as a migration project. Method in [`OS/ROADMAP.md`](OS/ROADMAP.md) Part 5.
+
 **4. Every sentence the AI produces must trace to a field a tool returned.** If it cannot, say the platform does not record it.
 
 **5. Anything with business consequences requires human approval.** The AI drafts; a person commits.

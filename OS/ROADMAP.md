@@ -136,25 +136,12 @@ The right column looks like the mess. The left column determines whether consoli
 
 You don't need the backend yet. You need the **call sites shaped** so a backend can slide underneath.
 
-```js
-// src/services/rateService.js
-// Still calls Supabase from the browser today.
-// The signature is what matters — it does not leak Supabase types.
-export async function getRatesForLane(laneId) {
-  const { data, error } = await supabase
-    .from('rates').select('*').eq('lane_id', laneId);
-  if (error) throw new ServiceError('RATES_LOOKUP_FAILED', error);
-  return data.map(toRateDTO);
-}
-```
-
-The component calls `getRatesForLane(laneId)` and knows nothing else. When the API lands, the body becomes a `fetch` and **no component changes**. Same when a LangGraph tool needs it — it imports the service, not the query.
-
-Rules:
 - No `supabase.from()` outside `src/services/`
 - Services return DTOs, never raw Postgres rows
 - Signatures use domain types, never Supabase client types
 - Existing violations: leave them, convert opportunistically
+
+Part 5 is the method for doing this.
 
 ### 1.2 Generate and share database types
 
@@ -210,7 +197,135 @@ Not doing these is correct. Listed so they don't read as oversights.
 
 ---
 
-# Part 5 — Next Steps
+# Part 5 — Adopting The Service Layer
+
+The apps were started with browser-direct Supabase queries. That was the straightforward way to begin and it is not a mistake to correct all at once.
+
+Two rules replace a migration project:
+
+> **New code always goes through a service. No exceptions, starting now.**
+>
+> **Existing code converts when you happen to touch it.** Never as a dedicated effort.
+
+The first rule stops the debt growing. The second amortizes cleanup across normal work. There is no week where you ship nothing.
+
+## Do Not Filter By AI Usefulness
+
+A tempting shortcut is to convert only the queries that look like they will matter to the assistant. Don't.
+
+You cannot predict which capability the AI will want. `getForwarderWinRate` sounds AI-relevant; `getLaneById` sounds boring, and the assistant will call the boring one constantly.
+
+Worse, the filter re-introduces AI reasoning into human app design, which is precisely what `README.md` — *The Foundation* — says not to do.
+
+**Every data operation goes through a service because that is how the app should be built.** AI-readiness is the byproduct, never the justification.
+
+## Build These Three Things Once
+
+```
+src/services/
+  _client.ts      the ONLY place createClient() is called
+  errors.ts       ServiceError, NotFoundError, PermissionError
+  rateService.ts  the first real service
+```
+
+`errors.ts` carries more weight than it appears — it is where the permission rule from `ARCHITECTURE.md` Part 7 actually lives:
+
+```ts
+export class ServiceError extends Error {
+  constructor(code, message, cause) {
+    super(message);
+    this.name = 'ServiceError';
+    this.code = code;
+    this.cause = cause;
+  }
+}
+
+// Deliberately identical to NotFound at the boundary —
+// a denial must not reveal that the record exists.
+export class PermissionError extends ServiceError {
+  constructor() { super('NOT_FOUND', 'Not found'); }
+}
+```
+
+Write new service files as `.ts` even in `rates-app`. Services are where types pay for themselves, because these signatures become the API contract later.
+
+## The Conversion
+
+A realistic page today:
+
+```jsx
+// BEFORE
+useEffect(() => {
+  (async () => {
+    const { data } = await supabase
+      .from('rates').select('*, forwarders(name)').eq('lane_id', laneId);
+
+    const active = data.filter(r => new Date(r.valid_until) >= new Date());
+    const sorted = active.sort((a, b) => a.total_cost - b.total_cost);
+    setRows(sorted.map(r => ({ ...r, forwarder: r.forwarders.name })));
+  })();
+}, [laneId]);
+```
+
+The two middle lines are the point. *"Which rates are still valid"* and *"best rate first"* are **business rules**, sitting in a `useEffect`. They exist only on this page, so every other page, report, and future tool is free to answer the same question differently.
+
+```ts
+// AFTER — src/services/rateService.ts
+export async function getActiveRatesForLane(laneId: string): Promise<Rate[]> {
+  const { data, error } = await supabase
+    .from('rates')
+    .select('id, lane_id, total_cost, currency, valid_from, valid_until, forwarders(id, name)')
+    .eq('lane_id', laneId);
+
+  if (error) throw new ServiceError('RATES_LOOKUP_FAILED', 'Could not load rates', error);
+
+  return data
+    .filter(isCurrentlyValid)
+    .sort(byTotalCostAscending)
+    .map(toRateDTO);
+}
+```
+
+```jsx
+// The component becomes boring, which is the goal
+useEffect(() => {
+  getActiveRatesForLane(laneId).then(setRates);
+}, [laneId]);
+```
+
+## The Payoff
+
+When `logistics-api` exists, only the service body changes:
+
+```ts
+export async function getActiveRatesForLane(laneId: string): Promise<Rate[]> {
+  const res = await fetch(`${API}/lanes/${laneId}/rates?active=true`);
+  if (!res.ok) throw new ServiceError('RATES_LOOKUP_FAILED', 'Could not load rates');
+  return res.json();
+}
+```
+
+**No component changes.** The validity and ranking rules move server-side, where the AI tool calls the same code — so the assistant's idea of "the best current rate" is guaranteed to match what the screen shows.
+
+That guarantee is the entire reason for this work.
+
+## What To Convert First
+
+The screen you are already working on this week. Not the biggest, not the most AI-relevant, not the messiest.
+
+The first conversion's real job is to establish `_client`, `errors`, and one DTO mapper, so the second one takes twenty minutes.
+
+## Three Ways To Over-Engineer This
+
+**Don't build a repository layer in the browser.** Services calling Supabase directly is correct for now. The repository split happens when this code moves to Fastify.
+
+**Keep DTO mappers dumb.** Rename fields, drop internals, flatten a join. No validation frameworks, no class hierarchies.
+
+**Don't convert everything.** A file you are not touching is fine as-is, indefinitely.
+
+---
+
+# Part 6 — Next Steps
 
 Ordered. Early steps are decisions and documents that cost no code and stop further divergence. Code work is last and deliberately small.
 
@@ -240,6 +355,8 @@ Generate, publish as `@logistics/types`, consume from rates-app, add a regenerat
 
 **Do not convert rates-app.** Pick the feature you're actively working on. Create `src/services/`, move its queries, write `ServiceError` and one DTO mapper, point the components at the service.
 
+Follow Part 5 — it is the full method, with the conversion worked through end to end.
+
 The goal is a working reference implementation, not coverage. Once one exists, 1.1 stops being a project and becomes a habit.
 
 ### Step 5 — TypeScript on-ramp (~30 min)
@@ -248,7 +365,7 @@ The goal is a working reference implementation, not coverage. Once one exists, 1
 
 ---
 
-# Part 6 — Ongoing Habits
+# Part 7 — Ongoing Habits
 
 Rules that apply from Step 4 onward.
 
@@ -261,7 +378,7 @@ Rules that apply from Step 4 onward.
 
 ---
 
-# Part 7 — Triggers
+# Part 8 — Triggers
 
 Tier 2 items shouldn't sit on a calendar. Each has a natural trigger.
 
