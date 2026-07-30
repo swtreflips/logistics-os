@@ -100,6 +100,8 @@ Most systems land on: user JWT for interactive requests, service role for jobs a
 
 **Decide before the first Fastify route.**
 
+**This is a security decision, not only an architectural one.** Cross-party isolation is currently verified and holds because RLS sits in the request path. Choosing the service role key bypasses RLS server-side and moves that guarantee into service code that does not exist yet — see `SECURITY.md` Part 7. D3 is the same decision for machine identities.
+
 ## D11 and D12 — GeoBrain
 
 Neither blocks anything today; both get expensive once GeoBrain exists.
@@ -337,6 +339,7 @@ Ordered. Early steps are decisions and documents that cost no code and stop furt
 - [ ] **D5** Module separation
 - [ ] **D9** Definition of `customer`
 - [ ] **D10** Soft delete or hard delete
+- [ ] **Party isolation model** — the owning-party column and policy shape every external-facing table keys on. The most consequential item here, and the one that cannot be retrofitted onto populated tables. See `SECURITY.md` 3.1.
 - [ ] **D6 / D7** Grid and component system — cheap to decide, prevents app #3 adding a third variant
 
 Record each with a one-line rationale.

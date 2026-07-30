@@ -15,6 +15,7 @@ Everything lives in **[`OS/`](OS/README.md)**.
 | [OS/ARCHITECTURE.md](OS/ARCHITECTURE.md) | Layering, service boundaries, stack, hosting, data, security |
 | [OS/MODULES.md](OS/MODULES.md) | The four business domains and platform services |
 | [OS/AI.md](OS/AI.md) | AI philosophy, tool design, phases, worked example |
+| [OS/SECURITY.md](OS/SECURITY.md) | Threat model, standards, build-phase controls, per-layer checklists |
 | [OS/ROADMAP.md](OS/ROADMAP.md) | Decisions log, groundwork, next steps |
 
 [CLAUDE.md](CLAUDE.md) holds the coding rules that apply while writing code.

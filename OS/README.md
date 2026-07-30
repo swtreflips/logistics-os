@@ -94,6 +94,7 @@ If no, it was built in the wrong layer.
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | Layering, service boundaries, the two deployables, technology stack, hosting, data model philosophy, security, engineering standards |
 | **[MODULES.md](MODULES.md)** | The four business domains, platform services, and the lifecycle that connects them |
 | **[AI.md](AI.md)** | AI philosophy, tool design, grounding rules, phase roadmap, and a worked example |
+| **[SECURITY.md](SECURITY.md)** | Threat model, standards, what to get right during the build, and what to wire up per layer |
 | **[ROADMAP.md](ROADMAP.md)** | What is decided, what is not, what is currently wrong, and what to do next |
 
 Read ARCHITECTURE first. Everything else assumes it.
