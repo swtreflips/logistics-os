@@ -48,17 +48,18 @@ Detail on each AI phase is in `AI.md`.
 
 The platform is being built as standalone apps sharing one Supabase project. This is a deliberate sequence, not an accident: shared database and shared auth are the hard parts of consolidation, and they already exist.
 
-| | rates-app | stufferPlanner | logistics-api |
-|---|---|---|---|
-| Stack | Vite + React 18 | Vite + React 19 | not built |
-| Language | JavaScript | TypeScript | — |
-| UI | MUI + MUI X DataGrid | Radix + ag-Grid | — |
-| Styling | Tailwind 3 | Tailwind 4 | — |
-| State | — | zustand | — |
-| Data | Supabase, **direct from browser** | none — CSV + client state | — |
-| Deploy | Vercel | Vercel | Railway (planned) |
+| | rates-app | stufferPlanner | geoapi-next | logistics-api |
+|---|---|---|---|---|
+| Role | Rates module | Planner module | GeoBrain platform service | Business Services API |
+| Stack | Vite + React 18 | Vite + React 19 | Next.js 16 | Fastify |
+| Language | JavaScript | TypeScript | TypeScript | — |
+| UI | MUI + MUI X DataGrid | Radix + ag-Grid | — | — |
+| Data | Supabase, **direct from browser** | none — CSV + client state | Supabase (cache), HERE, Nominatim | — |
+| Deploy | Vercel | Vercel | Vercel — **live** | Railway (not built) |
 
 **Shared:** one Supabase project, one auth model, RLS working for internal vs. external users, hub of cards for internal navigation.
+
+`geoapi-next` is the exception to everything below: it is a real backend service with authenticated routes, a cache layer, and no business logic. It is the pattern the rest of the platform has yet to follow.
 
 ## The Real Problem
 
@@ -86,8 +87,8 @@ This would be a problem in a single monolithic app too. Merging three SPAs that 
 | D8 | Domain strategy | **closed** — subdomains per module, `api.domain.com` |
 | D9 | Definition of `customer` | open |
 | D10 | Soft delete or hard delete | open |
-| D11 | GeoBrain consumers: API only, frontends too, or both | open |
-| D12 | GeoBrain cache store: shared Supabase schema or dedicated | open |
+| D11 | GeoBrain consumers: API only, frontends too, or both | open — service is live, frontends already connected |
+| D12 | GeoBrain cache store: shared Supabase schema or dedicated | open — currently shared Supabase |
 
 ## D2 — Authorization
 
@@ -104,11 +105,15 @@ Most systems land on: user JWT for interactive requests, service role for jobs a
 
 ## D11 and D12 — GeoBrain
 
-Neither blocks anything today; both get expensive once GeoBrain exists.
+**GeoBrain is built and deployed** — the `geoapi-next` repo, live at `geoapi-next.vercel.app`, Next.js on Vercel as specified. Six routes: `geocode`, `route`, `route-batch`, `within`, `within-batch`, `healthz`. It uses Supabase for its cache and calls HERE and Nominatim upstream.
 
-**D11** — two consumers means two cache-invalidation paths and two rate-limit enforcement points. **API-only is the reversible choice**; opening it to frontends later is easy, closing it afterward is not.
+So these are decisions about a **running service**, not a future one, and both are partly answered in practice.
 
-**D12** — a geocoding cache will accumulate millions of rows. In shared Supabase it needs its own schema (see D5) and must be excluded from the audit and RLS conventions that exist for business data. A dedicated store sidesteps that.
+**D11 — consumers.** Currently two: signed-in rates-app browser sessions presenting a Supabase JWT, and server-side scripts presenting a separate `GEO_SERVICE_TOKEN`. The frontend-direct path is already open, so the reversible choice has been spent. What remains is whether the Business Services API becomes a third consumer, or the only one, once it exists.
+
+**D12 — cache store.** Currently shared Supabase. Still needs the schema separation from D5: geocode and route caches will grow to millions of rows beside business tables and must be excluded from the backup, audit, and RLS conventions that exist for business data.
+
+Security posture is sound — every billable route authenticates, the anon key is explicitly rejected as a caller credential, CORS fails closed in production, and batch sizes are capped. Open items are per-caller rate limiting and a billing alert on the HERE account. See `SECURITY.md`.
 
 ## D9 — `customer`
 
@@ -393,7 +398,8 @@ Tier 2 items shouldn't sit on a calendar. Each has a natural trigger.
 | stufferPlanner needs to survive a refresh | Give it a schema |
 | A second app needs the same component | Extract `@logistics/ui` |
 | About to create app #3 | It gets a subdomain and uses the D6/D7 stack |
-| About to build GeoBrain | D11 and D12 must be answered first |
+| `logistics-api` starts calling GeoBrain | Settle D11 — is it the only consumer, or a third one? |
+| GeoBrain cache growth becomes visible | Settle D12 — schema separation per D5 |
 | Starting to write AI tools | Stop — `logistics-api` must exist first |
 
 ---
