@@ -55,6 +55,12 @@ Collect schedules from carriers · compare transit times · compare transshipmen
 
 Carrier websites · carrier APIs · Python scraping services
 
+## Status — built
+
+A React dashboard over schedule data, reading through named capability functions backed by Postgres RPCs (`nearby_schedules`, `distinct_pols`). Geospatial lookups go to GeoBrain, which replaced a Render-hosted FastAPI geocoder in July 2026 and is faster than it was.
+
+The Python scrapers that populate `schedules` are deliberately kept outside the platform repos for now.
+
 ## AI Usage
 
 *What's the fastest routing? Which carrier has the fewest transshipments? Which services arrive before August 10? Compare ONE and Maersk for this lane.*
@@ -90,6 +96,18 @@ Container planning before shipment execution. Determines how products fit into c
 ## Responsibilities
 
 Container optimization · case planning · CBM calculations · cargo ready management · factory collaboration · quoting support · forecast loading dates
+
+## Status — backend built, July 2026
+
+Six `planner_` tables behind RLS. Internal sees every organization; a supplier sees only its own, and **sibling plants are grouped** — Junsun Thailand and Qingdao Junsun are one commercial relationship run out of two factories, so one login covers both, with a switcher between them. A rival factory sees nothing, including who works there.
+
+Two model decisions worth carrying into other modules:
+
+**CBM is dual-input.** Suppliers report either per-case or total, inconsistently. Both are stored as supplied, and the effective values are Postgres **generated columns** deriving one from the other against `quantity_available`. A generated column is writable by nobody, which makes the derivation impossible to bypass or disagree with — the app never performs that arithmetic.
+
+**Cargo ready dates move, and the movement is the point.** `planner_po_line_events` is append-only, written by an AFTER UPDATE trigger, so a CSV upload and an inline grid edit produce identical history with no cooperation from the app. An upload that changes nothing writes nothing. This is `ARCHITECTURE.md` Part 5's event model in miniature, and currently the only place it exists.
+
+Containers and allocations still resolve to in-memory local implementations; PO lines, suppliers and profiles come from the database.
 
 ## AI Usage
 

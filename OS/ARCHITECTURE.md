@@ -280,8 +280,11 @@ Do not treat these as decided. See the Decisions Log in `ROADMAP.md`.
 
 - Data grid — rates-app uses MUI X DataGrid, stufferPlanner uses ag-Grid (D6)
 - Component system — MUI vs. Radix (D7)
+- Name for the data-access layer — three apps use three names (D13)
 - Server state — React Query intended, not yet adopted
 - Forms — React Hook Form intended, not yet adopted
+
+Settled by practice and recorded in `ROADMAP.md` Part 3: IDs are `uuid` (D4); module separation is table prefixes, not Postgres schemas (D5).
 
 ## Deployment Model
 
@@ -360,6 +363,10 @@ Audit columns (`created_by`, `updated_by`) belong on every business table from c
 ## Authorization Always Happens In Services
 
 Never trust React, LangGraph, or an API caller. Services verify user identity, organization, permissions, and access rights — every time.
+
+**The corollary is the part that gets missed: a component must not verify them a second time.** A permission rule copied into a React component does not add a layer of safety — the rows it would filter are already gone, decided server-side. What it adds is a second definition, free to drift from the first, failing silently when it does. A component that renders fewer rows than the caller is entitled to looks exactly like a component working correctly.
+
+This has already happened once here — `ROADMAP.md` Part 2 has the case. Assume a duplicated rule has diverged and has not been noticed yet.
 
 ## The AI Has No Special Access
 

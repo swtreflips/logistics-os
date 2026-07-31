@@ -52,11 +52,23 @@ This single property deserves more engineering attention than everything else in
 
 Cheap today. Expensive or impossible to retrofit later.
 
-## 3.1 Design the party-isolation model into the schema
+## 3.1 Design the party-isolation model into the schema — ✅ done
 
 Every table an external party can reach needs an owning party ID, and RLS policies keyed on it.
 
-Retrofitting tenancy onto a populated schema is one of the genuinely painful migrations. This belongs with the schema decisions in `ROADMAP.md` Part 6, Step 1 — and it is now the most consequential of them.
+**This is built.** `organization_id` is the owning-party column; policies are keyed on the `SECURITY DEFINER` helpers `my_org()`, `my_orgs()` and `my_org_type()` rather than inlined sub-selects, so identity logic exists in one place and a policy on `profiles` calling them does not recurse.
+
+`my_orgs()` returns own-organization **plus siblings sharing a `group_id`**, which is what lets one supplier login legitimately span two plants without widening anything else.
+
+Verified across internal, forwarder, and multi-plant supplier accounts. It was the most consequential item on the Step 1 list, and it is the one that could not have been retrofitted.
+
+Three things learned doing it, worth keeping:
+
+**A view does not inherit RLS.** Without `security_invoker = true` a view runs as its owner, so every base-table policy can be correct while the view hands a factory its rivals' data. Three planner views needed it.
+
+**An `INSERT ... SELECT` that matches zero rows looks like success.** An isolation test written that way reported ALLOWED when RLS had in fact hidden the row. Test with explicit IDs obtained out of band, or the test proves nothing.
+
+**Identity must never come from `user_metadata`.** It is user-writable from the browser console. Both apps now read role and organization from `profiles`.
 
 ## 3.2 RLS on every table, deny by default
 
@@ -72,6 +84,8 @@ where schemaname = 'public'
 ```
 
 Empty result, or the migration does not ship.
+
+**Status, July 2026: 30 of 30 public tables have RLS enabled.** Verified directly against the database. What is *not* yet done is wiring that query into CI so the thirty-first table cannot ship without it — which is the entire point of the check, since today's coverage was achieved by attention rather than by a gate.
 
 ## 3.3 Secrets discipline
 
@@ -147,12 +161,13 @@ If those come back clean, isolation is genuinely solid, and this moves from *urg
 
 A gate, not a suggestion. Everything below is done before the first real forwarder or factory logs in.
 
-- [ ] RLS enabled and policy-covered on every table, verified by the query in 3.2
-- [ ] Cross-party authorization tests passing (3.4)
-- [ ] Direct PostgREST surface tested, including embeds and aggregates (Part 4)
+- [x] RLS enabled and policy-covered on every table — **30 of 30**, verified July 2026 by the query in 3.2
+- [ ] That query wired into CI, so table thirty-one cannot ship without a policy
+- [ ] Cross-party authorization tests passing (3.4) — verified manually, not yet automated
+- [~] Direct PostgREST surface tested (Part 4) — exercised with a real JWT and the anon key during planner development, including an embedded `organizations(...)` resource. Aggregates and counts **not** tested.
 - [ ] Storage bucket policies reviewed separately from table RLS
-- [ ] External accounts are invite-only — **no self-registration**
-- [ ] MFA required for external accounts
+- [ ] **External accounts are invite-only — self-registration is currently ENABLED** (`disable_signup: false`). Anyone who can reach the project can create an account. They land with no `profiles` row and therefore see nothing, so this is not an active data-exposure path — but it is unauthenticated account creation against a project holding competitive bid data, and it must be closed before the first real external party is invited.
+- [ ] MFA required for external accounts — TOTP enrollment is available but not enforced
 - [ ] No ability for one party to enumerate other parties
 - [ ] Upload scanning and validation in place
 - [ ] Point-in-Time Recovery enabled **and a restore tested** — an untested backup is not a backup
@@ -254,12 +269,15 @@ One page is enough, written calmly now rather than improvised at 11pm. It needs 
 
 Everything above is achievable solo. It does not require a security team — it requires deciding it matters before the first external user rather than after the first incident.
 
-1. Party isolation model in the schema (3.1)
-2. RLS coverage check wired into migrations (3.2)
-3. Service role key confirmed absent from all frontend surfaces; `.graph_refresh_token` history checked (3.3)
-4. Cross-party authorization regression tests (3.4)
-5. PITR enabled and a restore tested
-6. MFA and SSO
-7. Direct PostgREST surface verification (Part 4)
-8. Incident response one-pager
-9. Dependency scanning in CI
+1. ~~Party isolation model in the schema (3.1)~~ — **done**
+2. **Disable self-registration** (`disable_signup`) — a five-minute change, currently open
+3. RLS coverage check wired into migrations (3.2) — coverage is 30/30 today, but nothing enforces it
+4. Service role key confirmed absent from all frontend surfaces; `.graph_refresh_token` history checked (3.3)
+5. Cross-party authorization regression tests (3.4)
+6. PITR enabled and a restore tested
+7. MFA and SSO
+8. Direct PostgREST surface verification — aggregates and counts still untested (Part 4)
+9. Incident response one-pager
+10. Dependency scanning in CI
+
+Items 1 and 3 illustrate the difference the rest of this document turns on: **isolation is correct today, and nothing prevents it being wrong tomorrow.** Every item above 5 is about converting a verified state into an enforced one.

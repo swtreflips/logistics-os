@@ -95,6 +95,7 @@ If no, it was built in the wrong layer.
 | **[MODULES.md](MODULES.md)** | The four business domains, platform services, and the lifecycle that connects them |
 | **[AI.md](AI.md)** | AI philosophy, tool design, grounding rules, phase roadmap, and a worked example |
 | **[SECURITY.md](SECURITY.md)** | Threat model, standards, what to get right during the build, and what to wire up per layer |
+| **[GLOSSARY.md](GLOSSARY.md)** | One meaning per domain term, across every module and service |
 | **[ROADMAP.md](ROADMAP.md)** | What is decided, what is not, what is currently wrong, and what to do next |
 
 Read ARCHITECTURE first. Everything else assumes it.
@@ -105,13 +106,20 @@ Read ARCHITECTURE first. Everything else assumes it.
 
 The platform does not exist yet as a single system. It is being built as standalone apps that share one Supabase project and one auth model, surfaced to internal users through a hub of cards.
 
-| | rates-app | stufferPlanner | logistics-api |
-|---|---|---|---|
-| Stack | Vite + React 18, JavaScript | Vite + React 19, TypeScript | not built |
-| Data | Supabase, direct from browser | none — CSV and client state | — |
-| Deploy | Vercel | Vercel | Railway (planned) |
+| | Schedules | rates-app | stufferPlanner | geoapi | logistics-api |
+|---|---|---|---|---|---|
+| Stack | Vite + React, TS | Vite + React 18, JS | Vite + React 19, TS | Next.js | Fastify |
+| Data access | `lib/supabase.ts` | `features/*/services/` | `data/repos/` | own routes | not built |
+| Deploy | Vercel | Vercel | Vercel | Vercel — **live** | Railway (planned) |
 
-**This is a deliberate sequence, not an accident.** Shared database and shared auth are the hard parts of consolidation, and they already exist. What is missing is the service layer.
+**This is a deliberate sequence, not an accident.** Shared database and shared auth are the hard parts of consolidation, and they already exist.
+
+**The data layer also exists** — in all three frontends, under three different names. Every business query is behind a named function or a repository interface; none are issued from a React component. That is the substance of Rule 3, and it was reached by ordinary good practice rather than by a migration project.
+
+Two things are genuinely missing, and they are different from each other:
+
+1. **The extracted API.** The data layer runs *in the browser*, so a cron job, a webhook, or an AI tool has nothing to call. This is the P2 gate.
+2. **Business rules still live in components.** Permission checks, filters, and derivations sit in React alongside the code that renders them. That is Rule 2, and it is the gap that actually causes bugs today — see `ROADMAP.md` Part 2.
 
 `ROADMAP.md` tracks the gap between this reality and the architecture described here. Read it before assuming any document describes something that has been built.
 

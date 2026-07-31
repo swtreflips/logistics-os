@@ -48,28 +48,63 @@ Detail on each AI phase is in `AI.md`.
 
 The platform is being built as standalone apps sharing one Supabase project. This is a deliberate sequence, not an accident: shared database and shared auth are the hard parts of consolidation, and they already exist.
 
-| | rates-app | stufferPlanner | geoapi-next | logistics-api |
-|---|---|---|---|---|
-| Role | Rates module | Planner module | GeoBrain platform service | Business Services API |
-| Stack | Vite + React 18 | Vite + React 19 | Next.js 16 | Fastify |
-| Language | JavaScript | TypeScript | TypeScript | — |
-| UI | MUI + MUI X DataGrid | Radix + ag-Grid | — | — |
-| Data | Supabase, **direct from browser** | none — CSV + client state | Supabase (cache), HERE, Nominatim | — |
-| Deploy | Vercel | Vercel | Vercel — **live** | Railway (not built) |
+| | Schedules | rates-app | stufferPlanner | geoapi | logistics-api |
+|---|---|---|---|---|---|
+| Role | Schedules module | Rates module | Planner module | GeoBrain service | Business Services API |
+| Stack | Vite + React | Vite + React 18 | Vite + React 19 | Next.js 16 | Fastify |
+| Language | TypeScript | JavaScript | TypeScript | TypeScript | — |
+| UI | custom | MUI + MUI X DataGrid | Radix + ag-Grid | — | — |
+| Data layer | `lib/supabase.ts` | `features/*/services/` | `data/repos/` | own routes | — |
+| Backend | Supabase + RPCs | Supabase | Supabase, 6 `planner_` tables | Supabase cache, HERE, Nominatim | — |
+| Deploy | Vercel | Vercel | Vercel | Vercel — **live** | Railway (not built) |
 
-**Shared:** one Supabase project, one auth model, RLS working for internal vs. external users, hub of cards for internal navigation.
+**Shared:** one Supabase project, one auth model, RLS on **30 of 30** public tables, hub of cards for internal navigation.
 
-`geoapi-next` is the exception to everything below: it is a real backend service with authenticated routes, a cache layer, and no business logic. It is the pattern the rest of the platform has yet to follow.
+Inbound is an early `mapLibre` spike, not yet a module. The Python carrier scrapers feed Schedules and are deliberately separate.
+
+`geoapi` remains the reference: a real backend service with authenticated routes, a cache layer, and no business logic.
+
+## What Was Wrong Here Before
+
+This section used to say the real problem was that **rates-app queries Supabase directly from the browser, so no service layer exists anywhere.** That was measured and is false:
+
+- `rates-app` — six service modules under `features/*/services/`
+- `Schedules` — `findNearbySchedules()`, `getDistinctPOLs()`, over Postgres RPCs
+- `stufferPlanner` — repository interfaces with two implementations
+
+Across all three, **zero business queries are issued from a React component.** Tier 1.1 below — *"the most important item here"* — was reached without anyone running it as a project.
+
+Correcting this matters because a roadmap that misdescribes the present sends effort at problems that are already solved.
 
 ## The Real Problem
 
-Not that the apps are separate. That **rates-app talks to Supabase directly from the browser**, so no service layer exists anywhere.
+Two things, and they are different.
 
-- It contradicts the layering in `ARCHITECTURE.md`
-- It hard-blocks every AI phase — LangGraph cannot call a React component
-- Background jobs have nowhere to live
+### 1. The data layer runs in the browser
 
-This would be a problem in a single monolithic app too. Merging three SPAs that all query Supabase from the browser produces one bigger SPA that queries Supabase from the browser.
+The seam exists, but it lives inside three React bundles. So:
+
+- A cron job, webhook, or export has nowhere to call
+- LangGraph cannot call a React bundle — every AI phase is hard-blocked
+- Nothing outside a signed-in browser session can reach a capability
+
+This is the P2 gate, and it is now a **relocation**, not a rewrite. Part 5 describes the move.
+
+### 2. Business rules still live in components
+
+Rule 3 is met. **Rule 2 is not.** Putting a query behind a function does not put the *rule* behind it, and the rules stayed in React:
+
+| App | Rules still in components |
+|---|---|
+| stufferPlanner | who may edit a row, which rows are visible, container eligibility, allocation capacity |
+| rates-app | rate validity windows, ranking, submission gating |
+| Schedules | grouping and sort order in `state/` |
+
+This is the gap that produces bugs *today*, not at P2. A worked example, from July 2026: the planner's grid decided which PO lines a supplier could see and edit, using the user's single primary organization. The database had already scoped the query correctly and returned 34 rows for a two-plant supplier; the component discarded 9 of them and made the rest read-only. No error, no failing test, no type error — the rule in React silently contradicted the rule in Postgres, and it took rendering the app as that user to notice.
+
+That is precisely the failure `ARCHITECTURE.md` Part 6 predicts. The rule had been written down long before the bug, and being written down did not help, because it was not enforceable anywhere.
+
+**A rule that exists in two places has already diverged; you just have not looked yet.**
 
 ---
 
@@ -80,15 +115,36 @@ This would be a problem in a single monolithic app too. Merging three SPAs that 
 | D1 | API layer | **closed** — standalone Fastify service on Railway |
 | D2 | Authorization: RLS-authoritative or service-authoritative | open — urgent |
 | D3 | Service identity for jobs and AI agents | open — urgent |
-| D4 | ID strategy: uuid or bigint | open |
-| D5 | Module separation: Postgres schemas or table prefixes | open |
+| D4 | ID strategy: uuid or bigint | **closed by practice** — `uuid` / `gen_random_uuid()` |
+| D5 | Module separation: Postgres schemas or table prefixes | **closed by practice** — table prefixes |
 | D6 | Standard grid library | open |
 | D7 | Standard component system: MUI or Radix | open |
 | D8 | Domain strategy | **closed** — subdomains per module, `api.domain.com` |
-| D9 | Definition of `customer` | open |
+| D9 | Definition of `customer` | open — see `GLOSSARY.md` |
 | D10 | Soft delete or hard delete | open |
 | D11 | GeoBrain consumers: API only, frontends too, or both | open — service is live, frontends already connected |
 | D12 | GeoBrain cache store: shared Supabase schema or dedicated | open — currently shared Supabase |
+| D13 | Name for the data-access layer | open — three apps use three names |
+
+## D4 and D5 — Closed By Practice
+
+Both were decided in code before they were decided on paper. Recording them stops a future app re-litigating a question the schema has already answered.
+
+**D4 — `uuid`, generated with `gen_random_uuid()`.** Every table created for the planner and drayage modules uses it. A handful of older reference tables key on natural codes instead, which is correct for them and not a counter-example.
+
+**D5 — table prefixes, not Postgres schemas.** `planner_` (6 tables), `drayage_` (5), `sched_`. Genuinely shared entities are deliberately unprefixed: `organizations`, `profiles`, `notifications`, `organization_groups`. The `rates` and `schedules` tables predate the convention and are not worth renaming.
+
+The rule going forward: **module-private tables take a prefix; shared entities do not.**
+
+One consequence worth naming — `geocode_cache` sits unprefixed among business tables. It is neither shared business data nor module-private, and it is the table D12 is about.
+
+## D13 — What To Call The Data Layer
+
+`rates-app` says `services/`, Schedules says `lib/`, stufferPlanner says `repos/`. Same seam, three dialects.
+
+Low cost today, real cost at P2: each is a separate translation when capabilities move to Fastify. Pick one for the next app and leave the existing three alone.
+
+`services/` is the term used throughout `ARCHITECTURE.md`, which is an argument for it. Against: stufferPlanner's `repos/` are genuinely repositories — data access with no business rules — and `ARCHITECTURE.md` Part 2 separates those concepts deliberately. Both layers eventually exist; the browser currently has only one of them.
 
 ## D2 — Authorization
 
@@ -137,18 +193,25 @@ The right column looks like the mess. The left column determines whether consoli
 
 ## Tier 1 — Do Now
 
-### 1.1 Stop writing `supabase.from()` inside React components
+### 1.1 Keep queries out of components — ✅ done, hold the line
 
-**The most important item here.**
+This was *"the most important item here."* It is met in all three apps: `features/*/services/`, `lib/supabase.ts`, `data/repos/`. The only direct calls outside the layer are two identity lookups in `rates-app`'s `AuthProvider`, which is shell code, not domain logic.
 
-You don't need the backend yet. You need the **call sites shaped** so a backend can slide underneath.
+What remains of the original intent:
 
-- No `supabase.from()` outside `src/services/`
-- Services return DTOs, never raw Postgres rows
-- Signatures use domain types, never Supabase client types
-- Existing violations: leave them, convert opportunistically
+- ✅ No `supabase.from()` outside the data layer
+- ⬜ **The layer returns DTOs, never raw Postgres rows** — partly true; stufferPlanner's repos map to domain types, the other two return rows largely as-is
+- ⬜ **Signatures use domain types, never Supabase client types**
 
-Part 5 is the method for doing this.
+The rule stays in `CLAUDE.md` to prevent regression, not to describe a cleanup.
+
+### 1.1b Move business rules out of components — **the actual most important item**
+
+Rule 3 is met; Rule 2 is not. See Part 2, *The Real Problem*, for what this costs and the July 2026 example of what it costs *silently*.
+
+The test for whether a line belongs in the data layer: **would it still be true if the screen were rendered differently?** "Which rows may this user edit" is true regardless of grid library. "Which column is sorted" is not.
+
+Convert opportunistically, the same way 1.1 succeeded. Start with permission decisions — they are the ones that fail invisibly, because a wrong answer looks like a working screen.
 
 ### 1.2 Generate and share database types
 
@@ -158,35 +221,46 @@ supabase gen types typescript --project-id <id> > packages/types/src/db.ts
 
 Highest leverage per hour on this list. Publish as `@logistics/types` via a `file:` dependency — no monorepo tooling required.
 
-### 1.3 Freeze schema conventions
+### 1.3 Freeze schema conventions — partly settled, one real gap
 
-ID strategy · `created_at`/`updated_at` as `timestamptz` UTC · `created_by`/`updated_by` on every business table · soft-delete policy · `snake_case`, plural tables, `<entity>_id` foreign keys · module ownership via schema or prefix.
+Already true in practice: `uuid` IDs (D4) · `snake_case`, plural tables, `<entity>_id` foreign keys · `timestamptz` UTC · module prefixes (D5) · **RLS on 30 of 30 tables**.
 
-Retrofitting audit columns loses all prior history. Adding them now is free.
+Still open: soft-delete policy (D10).
+
+**The gap: `created_by` / `updated_by` exist on zero of 30 tables.**
+
+This is the largest unmet item in these documents and the only one that gets worse by waiting — every day of writes is history that cannot be recovered later. `created_at` is on roughly half.
+
+`ARCHITECTURE.md` Part 5 requires who / when / old / new / reason / AI-involved / approver on every consequential action. None of that is being captured.
+
+One partial exception, and it points the way: `planner_po_line_events` records field-level changes for cargo ready and CBM via an AFTER UPDATE trigger. That is the pattern — a trigger, so a CSV upload and an inline edit produce identical history with no app-side cooperation. It covers two fields on one table.
 
 ### 1.4 Answer D2 and D3
 
 See Part 3.
 
-### 1.5 Write a glossary
+### 1.5 Write a glossary — ✅ done
 
-If rates says `lane`, stuffer says `route`, and inbound says `shipment_leg` for the same thing, consolidation becomes a translation project.
+`GLOSSARY.md`. Grounded in the schema rather than invented, so it describes the terms the tables
+actually use.
 
-`lane` · `route` · `leg` · `shipment` · `booking` · `container` · `customer` · `supplier` · `forwarder` · `carrier` · `port` · `origin`/`destination` · `ETA`/`ETD`/`ATA`/`ATD` · `cargo ready` · `item`/`SKU`
+Two terms are deliberately left **undefined**: `customer` (D9) and `shipment`. Both are owned by
+Inbound, which does not exist yet, and an invented definition now would be adopted by three
+modules before the module that owns it gets a say.
 
-Costs an hour. Cheapest item on this list.
-
-### 1.6 Stop adding JavaScript to rates-app
-
-Add `tsconfig.json` with `allowJs: true`. Write new files as `.ts`. Convert nothing.
+It also records three naming inconsistencies already present — `pol`/`port_of_loading`,
+`pod`/`port_of_discharge`, `transit_days`/`transit_time_days` — to be resolved opportunistically,
+not migrated.
 
 ## Tier 2 — Soon
 
-**2.1 Stand up `logistics-api`.** The change that unlocks AI, jobs, and cross-module queries. If 1.1 is done consistently, it's mechanical.
+**2.1 Stand up `logistics-api`.** The change that unlocks AI, jobs, and cross-module queries. 1.1 *is* done consistently, so this is mechanical — relocation, not rewrite.
 
-Consequences to plan for: cross-origin calls need CORS and a token strategy (D2); two deploy targets means API changes must stay backward-compatible; the API needs its own repo, env management, and server-side Supabase client.
+Consequences to plan for: cross-origin calls need CORS and a token strategy (D2); two deploy targets means API changes must stay backward-compatible; the API needs its own repo, env management, and server-side Supabase client. `geoapi` has already solved the CORS and token-strategy problems once — reuse that shape rather than rediscovering it.
 
-**2.2 Give stufferPlanner persistence.** It cannot participate in anything until it has a schema. Not a consolidation cost — unfinished work that exists regardless.
+**2.2 Give stufferPlanner persistence.** ✅ **Done, July 2026.** Six `planner_` tables with RLS, an append-only event log for cargo ready and CBM, sibling-organization grouping so a multi-plant supplier sees all its plants, and repository interfaces with Local and Supabase implementations behind `VITE_DATA_SOURCE`.
+
+The repository seam earned itself immediately: swapping sample data for the real database changed no consuming component. Worth noting against Part 5's advice not to build repositories in the browser — see the note there.
 
 **2.3 Shared UI package.** Once two apps need the same component. Not before.
 
@@ -324,7 +398,13 @@ The first conversion's real job is to establish `_client`, `errors`, and one DTO
 
 ## Three Ways To Over-Engineer This
 
-**Don't build a repository layer in the browser.** Services calling Supabase directly is correct for now. The repository split happens when this code moves to Fastify.
+**Don't build a repository layer in the browser** — *with one demonstrated exception.*
+
+Services calling Supabase directly is correct for most cases, and the repository split normally happens when the code moves to Fastify.
+
+stufferPlanner did it anyway, and was right to. It had sample data and no schema, so the interface was doing real work immediately: two implementations, `Local` and `Supabase`, selected by `VITE_DATA_SOURCE`. When the database arrived, swapping them changed no consuming component, and each repo could be migrated and verified on its own rather than flipping five at once and debugging auth, RLS and column mapping simultaneously.
+
+**The distinction: build the interface when a second implementation exists today.** Not when one might exist later. "Supabase now, Fastify eventually" does not qualify — that is one implementation and a plan.
 
 **Keep DTO mappers dumb.** Rename fields, drop internals, flatten a join. No validation frameworks, no class hierarchies.
 
@@ -340,32 +420,41 @@ Ordered. Early steps are decisions and documents that cost no code and stop furt
 
 ### Step 1 — Close the schema-shaping decisions (~1 hour, no code)
 
-- [ ] **D4** ID strategy
-- [ ] **D5** Module separation
-- [ ] **D9** Definition of `customer`
+- [x] **D4** ID strategy — `uuid`, settled by practice
+- [x] **D5** Module separation — table prefixes, settled by practice
+- [x] **Party isolation model** — `organization_id` on every external-facing table, RLS keyed on `my_org()` / `my_orgs()` / `my_org_type()`, sibling plants grouped via `organizations.group_id`. Verified across internal, forwarder and multi-plant supplier accounts. **This was the most consequential item on the list and it is done.**
+- [ ] **D9** Definition of `customer` — see `GLOSSARY.md`
 - [ ] **D10** Soft delete or hard delete
-- [ ] **Party isolation model** — the owning-party column and policy shape every external-facing table keys on. The most consequential item here, and the one that cannot be retrofitted onto populated tables. See `SECURITY.md` 3.1.
-- [ ] **D6 / D7** Grid and component system — cheap to decide, prevents app #3 adding a third variant
+- [ ] **D6 / D7** Grid and component system — cheap to decide, prevents app #4 adding a third variant
+- [ ] **D13** One name for the data layer
 
 Record each with a one-line rationale.
 
 **D2 and D3** are urgent but tied to the API — answer them before the first Fastify route, not before the schema work above.
 
-### Step 2 — Write the glossary (~1 hour)
+### Step 1b — Add audit columns (~half day, and it decays)
 
-Start from the term list in 1.5. Resolve `customer` explicitly, including what it is *not*.
+`created_by` / `updated_by` are on zero of 30 tables. Every day of writes is history that cannot be reconstructed. This has overtaken everything else in Tier 1 by urgency, because it is the only item whose cost grows while it waits.
+
+Start with the tables that already carry consequential writes: `planner_po_lines`, `planner_containers`, `planner_allocations`, `rates`, `rate_submissions`.
+
+### Step 2 — ✅ done — `GLOSSARY.md` exists
+
+Resolve `customer` (D9) into it when Inbound's data model is drafted, including what it is *not*.
 
 ### Step 3 — Shared types package (~1–2 hours)
 
 Generate, publish as `@logistics/types`, consume from rates-app, add a regeneration script so it doesn't drift.
 
-### Step 4 — Service pattern on one feature (~half day)
+### Step 4 — Move one *rule* into the data layer (~half day)
 
-**Do not convert rates-app.** Pick the feature you're actively working on. Create `src/services/`, move its queries, write `ServiceError` and one DTO mapper, point the components at the service.
+The original Step 4 was "service pattern on one feature." That pattern now exists in three apps; the queries have moved. **The rules have not.**
 
-Follow Part 5 — it is the full method, with the conversion worked through end to end.
+Pick one permission decision currently living in a component and move it down. The reference candidate is stufferPlanner's `canEditRow` — a rule about who may edit which PO line, sitting in a grid column definition, which has already been observed disagreeing with the database.
 
-The goal is a working reference implementation, not coverage. Once one exists, 1.1 stops being a project and becomes a habit.
+Write `ServiceError` / `PermissionError` while you are there — Part 5 shows why the permission-denial shape belongs in shared code rather than in each caller.
+
+The goal is one worked example, not coverage. Once it exists, 1.1b stops being a project and becomes a habit — exactly how 1.1 got done.
 
 ### Step 5 — TypeScript on-ramp (~30 min)
 
@@ -394,10 +483,13 @@ Tier 2 items shouldn't sit on a calendar. Each has a natural trigger.
 |---|---|
 | Something needs data without a browser — cron, webhook, export | Stand up `logistics-api`. This is the real signal. |
 | About to write the first Fastify route | D2 and D3 must be answered first |
-| Starting Inbound | Design the event log and projection first, before any UI |
-| stufferPlanner needs to survive a refresh | Give it a schema |
+| Starting Inbound in earnest | Design the event log and projection first, before any UI. `mapLibre` is a spike, not the module. |
+| ~~stufferPlanner needs to survive a refresh~~ | ~~Give it a schema~~ — **done, July 2026** |
+| Touching a component that decides who may see or do something | Move the rule into the data layer (1.1b) |
+| Creating any new table | It carries `created_by` / `updated_by` — no exceptions (1.3) |
 | A second app needs the same component | Extract `@logistics/ui` |
-| About to create app #3 | It gets a subdomain and uses the D6/D7 stack |
+| About to create app #4 | It gets a subdomain, the D6/D7 stack, and the D13 layer name |
+| Before the first external party logs in | `SECURITY.md` Part 5 gate — self-registration is currently **enabled** |
 | `logistics-api` starts calling GeoBrain | Settle D11 — is it the only consumer, or a third one? |
 | GeoBrain cache growth becomes visible | Settle D12 — schema separation per D5 |
 | Starting to write AI tools | Stop — `logistics-api` must exist first |
