@@ -11,13 +11,19 @@ motion comes up, the answer is here or it becomes here.
 
 You already know the feeling from Android and from NetSuite: every screen is obviously part of
 one system, and yet you always know which part you are in. That is not achieved by making
-everything identical. It is achieved by holding almost everything constant and letting exactly
-one thing vary.
+everything identical. It is achieved by holding the things that carry meaning constant, and
+being deliberate about the few that are allowed to differ.
 
-> **The invariants carry the family. One variable carries the module.**
+> **The invariants carry the family. The accent carries the module.**
 
-Type, spacing, depth, motion, component shape and — most importantly — **what each colour
-means** never change between modules. A single accent colour does.
+Type, neutrals, ink and — most importantly — **what each colour means** never change between
+modules. The accent does, and it is the only variation whose job is to say *which module you
+are in*.
+
+A module may also depart from the base on density, pace or a semantic colour, where its work
+genuinely differs. Those are local character, not identity, and they are permitted only when
+written down — see the table below. The distinction matters: identity is deliberate signalling,
+character is a considered exception, and drift is neither.
 
 This is why "make them all the same colour" is the wrong instinct. Four apps in matching
 colours still feel unrelated if a dark surface means *navigation* in one and *selected* in
@@ -25,9 +31,14 @@ another. Consistency of MEANING is what reads as one system. Consistency of hue 
 
 ---
 
-# The invariants
+# What is fixed, and what a module may vary
 
-Identical in every module. Defined once, in `linen.css`, loaded by every app from the same file.
+Two lists. Confusing them is how a design system either strangles a module or stops meaning
+anything, so the line between them is drawn explicitly.
+
+## Always identical
+
+Never varies. Defined once in `linen.css` and loaded by every module from the same file.
 
 | | Value | Token |
 |---|---|---|
@@ -36,14 +47,38 @@ Identical in every module. Defined once, in `linen.css`, loaded by every app fro
 | Numbers, codes, labels | DM Mono | `--font-mono` |
 | Neutral surfaces | warm greys | `--c-fog-*` |
 | Ink | deep warm green-black `#112424` | `--c-harbor-*` |
-| Positive / success | green | `--c-sea-*` |
-| Corner radius | 10 / 14 / 20px | `--radius-*` |
-| Depth | soft, diffuse | `--shadow-card` |
-| Motion | 180 / 340 / 560ms | `--motion-*` |
+| **What each surface MEANS** | see below | — |
+| **What the accent is for** | see below | — |
+
+The last two carry more weight than any value above them. A module may use a different green;
+it may not decide that dark means something else.
 
 **Numbers always use DM Mono with tabular figures.** In a logistics UI, numbers are read down a
-column and compared. Proportional digits make columns ragged and comparison slower. This one is
-not a style preference.
+column and compared. Proportional digits make columns ragged and comparison slower. Not a style
+preference.
+
+## Base defaults a module may vary — if it is recorded here
+
+| | Base | Varied by |
+|---|---|---|
+| Accent | — | **every module**, one each (table below) |
+| Corner radius | 10 / 14 / 20px | Schedules: square (`--radius-none`) |
+| Motion | 180 / 340 / 560ms | Schedules: 120–150ms |
+| Depth | soft, diffuse | Schedules: none — hairlines instead |
+| Positive / success | `--c-sea-*` green | Planner: teal `#16809a` |
+
+**Schedules varies density and pace on purpose.** It is a reading tool — square, hairlined,
+immediate — and forcing rounded corners and 340ms easing on it would be overwriting a design
+rather than skinning one. It takes the palette, the type and every rule about meaning; it keeps
+its own shape and tempo. That is a decision, recorded, not a drift.
+
+**The planner varies success because its accent is green.** Two greens side by side read as one
+colour, and the "saved" flash stopped meaning anything. Which is the general rule: *semantic
+colours must stay distinguishable from the MODULE ACCENT, not merely from each other.* Check it
+whenever an accent is assigned.
+
+Anything not in this table is not variable. Add a row before you vary something, or you are
+drifting rather than deciding.
 
 ---
 
@@ -79,9 +114,10 @@ is the one that was violated silently and mattered most.
 
 ---
 
-# The one variable: module accent
+# The accent
 
-One accent per module. It is how you know where you are without reading a word.
+One per module, and the only variation that exists to answer *where am I*. It is how you know
+without reading a word.
 
 | Module | Accent | Fill `500` | Text / border `600` |
 |---|---|---|---|
@@ -144,36 +180,21 @@ It is fifteen pairs and it takes a second. The design shipped for months with a 
 
 # Where the estate stands
 
-Everything below is already true:
+True today, across all four modules:
 
-- All four modules load the same `linen.css`, with the same variable names
-- No component in any module hardcodes a palette colour
+- All four load the same `linen.css`, with the same variable names
+- No component anywhere hardcodes a palette colour
 - Grid, map and MUI themes read tokens rather than literals
-- Every rendered contrast pair passes AA in RatesApp; the others improved on what they had
+- Dark is global navigation chrome only — the planner's grid header and container tray are
+  light and match RatesApp's grids; Schedules' ten ink fills use its accent instead
+- Every module carries its own accent, and all four clear AA in every role they are used in
+- Every variation from the base is recorded in the table above
 
-- Dark is global navigation chrome only. The planner's grid header and container tray band are
-  light and now match RatesApp's grids; Schedules' ten ink fills — selected chips, active tab,
-  chosen routing, checked filters, the primary button — use its accent
-- Every module carries its own accent, per the table above
-
-One thing is not yet aligned:
-
-**RatesApp's sidebar is the only gradient in the estate** (`--bg-harbor-mesh`). Either every
-module's chrome adopts it once they are in the hub, or it flattens to solid ink. Two treatments
-of the same surface is exactly the inconsistency this document exists to remove — and it will
-become visible the moment two modules sit behind one shell.
-
-A note learned applying this: **semantic colours have to stay distinguishable from the module
-accent, not merely from each other.** The planner's accent is green, and linen's success colour
-is also green — side by side the "saved" flash stopped meaning anything. Success moved to a
-true teal. Check this whenever a module accent is assigned.
-
-**Schedules is the awkward one, and that is worth naming.** It is deliberately austere — square
-corners, hairlines, no depth, fast transitions — while the platform base is soft, rounded and
-unhurried. It has adopted the palette and the type but rejects the shape and motion. That is a
-defensible local character, but it is a decision to make on purpose rather than to drift into:
-either Schedules relaxes toward the base, or the base accepts "density" as a documented per-
-module variation alongside accent.
+**One thing is not aligned: RatesApp's sidebar is the only gradient in the estate**
+(`--bg-harbor-mesh`). Either every module's chrome adopts it once they are behind one shell, or
+it flattens to solid ink. Two treatments of the same surface is exactly the inconsistency this
+document exists to remove — and it stays invisible until two modules sit side by side, which is
+precisely when it will be most annoying to fix.
 
 ---
 
@@ -188,7 +209,9 @@ Before writing any UI:
 - [ ] Accent is primary action and selection only
 - [ ] Numbers are DM Mono, tabular
 - [ ] Nothing styled through JavaScript uses a literal colour
-- [ ] Add the module and its accent to the table above the day it is created
+- [ ] Add the module and its accent to the accent table the day it is created
+- [ ] Record any departure from the base — density, pace, a semantic colour — in the
+      variations table, with the reason. An unrecorded variation is drift
 
 The cheapest moment to inherit the system is before the first screen exists. Inbound proved
 that: it had no design of its own, and adopting the base cost four small stylesheets. Retro-
