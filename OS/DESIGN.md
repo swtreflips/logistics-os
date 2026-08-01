@@ -63,22 +63,19 @@ inconsistent, and it is the part that most affects whether the estate feels like
 **Dark = "this is the application frame, not your content."** The sidebar. The top bar. That is
 the entire list.
 
-This rule matters more than any colour choice in this document, because dark is the strongest
-signal on a screen and the eye reads it first. Today the same ink means three different things:
+This rule matters more than any colour choice here, because dark is the strongest signal on a
+screen and the eye reads it first. It is worth recording what it cost to get wrong: for a while
+the same ink meant the sidebar in RatesApp, the column header in the planner, and "this chip is
+selected" in Schedules. A user moving between modules was told something different by the
+loudest element on every screen — and no amount of palette alignment would have fixed it,
+because the palette was already identical.
 
-| Module | Dark is currently used for | Correct? |
-|---|---|---|
-| RatesApp | the sidebar | ✅ chrome |
-| Planner | grid header, container-tray header | ❌ that is content |
-| Schedules | selected chips, active buttons, primary button | ❌ that is a state |
-
-A user moving between modules is being told something different by the loudest element each
-time. Fixing that will do more for coherence than any repaint.
-
-**Column headers are content furniture, not chrome.** RatesApp's grids already treat them that
-way — light background, mono uppercase label. That is the pattern; the planner should match it.
+**Column headers are content furniture, not chrome.** Light background, mono uppercase label.
 
 **Selected state is the accent's job, not ink's.**
+
+Both are now true everywhere. The rule earns its place at the top of this document because it
+is the one that was violated silently and mattered most.
 
 ---
 
