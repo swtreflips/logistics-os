@@ -154,19 +154,22 @@ Everything below is already true:
 - Grid, map and MUI themes read tokens rather than literals
 - Every rendered contrast pair passes AA in RatesApp; the others improved on what they had
 
-Three things are not yet aligned. In priority order:
+- Dark is global navigation chrome only. The planner's grid header and container tray band are
+  light and now match RatesApp's grids; Schedules' ten ink fills — selected chips, active tab,
+  chosen routing, checked filters, the primary button — use its accent
+- Every module carries its own accent, per the table above
 
-**1. Dark is used for content, not just chrome.** The planner's grid header and container tray
-should go light, matching RatesApp's grids. Schedules' selected chips and primary button should
-use its accent rather than full ink. This is the change that will actually make them feel
-related.
+One thing is not yet aligned:
 
-**2. Every module currently uses the same terracotta.** The table above is the intended
-assignment; only Rates is correct today. One token per module.
+**RatesApp's sidebar is the only gradient in the estate** (`--bg-harbor-mesh`). Either every
+module's chrome adopts it once they are in the hub, or it flattens to solid ink. Two treatments
+of the same surface is exactly the inconsistency this document exists to remove — and it will
+become visible the moment two modules sit behind one shell.
 
-**3. RatesApp's sidebar is the only gradient in the estate** (`--bg-harbor-mesh`). Either every
-module's chrome uses it once they are in the hub, or it flattens to solid ink. Two treatments of
-the same surface is exactly the inconsistency this document exists to remove.
+A note learned applying this: **semantic colours have to stay distinguishable from the module
+accent, not merely from each other.** The planner's accent is green, and linen's success colour
+is also green — side by side the "saved" flash stopped meaning anything. Success moved to a
+true teal. Check this whenever a module accent is assigned.
 
 **Schedules is the awkward one, and that is worth naming.** It is deliberately austere — square
 corners, hairlines, no depth, fast transitions — while the platform base is soft, rounded and
