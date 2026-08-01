@@ -16,6 +16,7 @@ Everything lives in **[`OS/`](OS/README.md)**.
 | [OS/MODULES.md](OS/MODULES.md) | The four business domains and platform services |
 | [OS/AI.md](OS/AI.md) | AI philosophy, tool design, phases, worked example |
 | [OS/SECURITY.md](OS/SECURITY.md) | Threat model, standards, build-phase controls, per-layer checklists |
+| [OS/DESIGN.md](OS/DESIGN.md) | Visual system — invariants, surfaces, per-module accent |
 | [OS/GLOSSARY.md](OS/GLOSSARY.md) | One meaning per domain term, across every module |
 | [OS/ROADMAP.md](OS/ROADMAP.md) | Decisions log, groundwork, next steps |
 

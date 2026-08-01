@@ -118,7 +118,8 @@ That is precisely the failure `ARCHITECTURE.md` Part 6 predicts. The rule had be
 | D4 | ID strategy: uuid or bigint | **closed by practice** — `uuid` / `gen_random_uuid()` |
 | D5 | Module separation: Postgres schemas or table prefixes | **closed by practice** — table prefixes |
 | D6 | Standard grid library | open |
-| D7 | Standard component system: MUI or Radix | open |
+| D7 | Standard component system: MUI or Radix | open — **the visual system half is closed**, see `DESIGN.md` |
+| D14 | Per-module accent, or one accent everywhere | **closed** — per-module, assigned in `DESIGN.md` |
 | D8 | Domain strategy | **closed** — subdomains per module, `api.domain.com` |
 | D9 | Definition of `customer` | open — see `GLOSSARY.md` |
 | D10 | Soft delete or hard delete | open |

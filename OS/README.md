@@ -95,6 +95,7 @@ If no, it was built in the wrong layer.
 | **[MODULES.md](MODULES.md)** | The four business domains, platform services, and the lifecycle that connects them |
 | **[AI.md](AI.md)** | AI philosophy, tool design, grounding rules, phase roadmap, and a worked example |
 | **[SECURITY.md](SECURITY.md)** | Threat model, standards, what to get right during the build, and what to wire up per layer |
+| **[DESIGN.md](DESIGN.md)** | What every module holds constant, and the one thing each varies |
 | **[GLOSSARY.md](GLOSSARY.md)** | One meaning per domain term, across every module and service |
 | **[ROADMAP.md](ROADMAP.md)** | What is decided, what is not, what is currently wrong, and what to do next |
 
